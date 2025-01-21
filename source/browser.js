@@ -9,7 +9,6 @@ host.BrowserHost = class {
         this._window = window;
         this._navigator = window.navigator;
         this._document = window.document;
-        this._telemetry = new base.Telemetry(this._window);
         this._window.eval = () => {
             throw new Error('window.eval() not supported.');
         };
@@ -54,72 +53,6 @@ host.BrowserHost = class {
 
     async view(view) {
         this._view = view;
-        const age = async () => {
-            const days = (new Date() - new Date(this._environment.date)) / (24 * 60 * 60 * 1000);
-            if (days > 180) {
-                const link = this._element('logo-github').href;
-                this.document.body.classList.remove('spinner');
-                for (;;) {
-                    /* eslint-disable no-await-in-loop */
-                    await this.message('Please update to the newest version.', null, 'Update');
-                    /* eslint-enable no-await-in-loop */
-                    this.openURL(link);
-                }
-            }
-            return Promise.resolve();
-        };
-        const consent = async () => {
-            if (this._getCookie('consent') || this._getCookie('_ga')) {
-                return;
-            }
-            let consent = true;
-            try {
-                const text = await this._request('https://ipinfo.io/json', { 'Content-Type': 'application/json' }, 'utf-8', null, 2000);
-                const json = JSON.parse(text);
-                const countries = ['AT', 'BE', 'BG', 'HR', 'CZ', 'CY', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'NO', 'PL', 'PT', 'SK', 'ES', 'SE', 'GB', 'UK', 'GR', 'EU', 'RO'];
-                if (json && json.country && countries.indexOf(json.country) === -1) {
-                    consent = false;
-                }
-            } catch {
-                // continue regardless of error
-            }
-            if (consent) {
-                this.document.body.classList.remove('spinner');
-                await this.message('This app uses cookies to report errors and anonymous usage information.', null, 'Accept');
-            }
-            this._setCookie('consent', Date.now().toString(), 30);
-        };
-        const telemetry = async () => {
-            if (this._environment.packaged) {
-                this._window.addEventListener('error', (event) => {
-                    if (event instanceof ErrorEvent && event.error && event.error instanceof Error) {
-                        this.exception(event.error, true);
-                    } else {
-                        const message = event && event.message ? event.message : JSON.stringify(event);
-                        const error = new Error(message);
-                        this.exception(error, true);
-                    }
-                });
-                const measurement_id = '848W2NVWVH';
-                const user = this._getCookie('_ga').replace(/^(GA1\.\d\.)*/, '');
-                const session = this._getCookie(`_ga${measurement_id}`);
-                await this._telemetry.start(`G-${measurement_id}`, user, session);
-                this._telemetry.set('page_location', this._document.location && this._document.location.href ? this._document.location.href : null);
-                this._telemetry.set('page_title', this._document.title ? this._document.title : null);
-                this._telemetry.set('page_referrer', this._document.referrer ? this._document.referrer : null);
-                this._telemetry.send('page_view', {
-                    app_name: this.type,
-                    app_version: this.version,
-                });
-                this._telemetry.send('scroll', {
-                    percent_scrolled: 90,
-                    app_name: this.type,
-                    app_version: this.version
-                });
-                this._setCookie('_ga', `GA1.2.${this._telemetry.get('client_id')}`, 1200);
-                this._setCookie(`_ga${measurement_id}`, `GS1.1.${this._telemetry.session}`, 1200);
-            }
-        };
         const capabilities = async () => {
             const filter = (list) => {
                 return list.filter((capability) => {
@@ -137,9 +70,6 @@ host.BrowserHost = class {
             });
             return Promise.resolve();
         };
-        await age();
-        await consent();
-        await telemetry();
         await capabilities();
     }
 
@@ -285,61 +215,9 @@ host.BrowserHost = class {
     }
 
     exception(error, fatal) {
-        if (this._telemetry && error) {
-            const name = error.name ? `${error.name}: ` : '';
-            const message = error.message ? error.message : JSON.stringify(error);
-            let context = '';
-            let stack = '';
-            if (error.stack) {
-                const format = (file, line, column) => {
-                    return `${file.split('\\').join('/').split('/').pop()}:${line}:${column}`;
-                };
-                const match = error.stack.match(/\n {4}at (.*) \((.*):(\d*):(\d*)\)/);
-                if (match) {
-                    stack = `${match[1]} (${format(match[2], match[3], match[4])})`;
-                } else {
-                    const match = error.stack.match(/\n {4}at (.*):(\d*):(\d*)/);
-                    if (match) {
-                        stack = `(${format(match[1], match[2], match[3])})`;
-                    } else {
-                        const match = error.stack.match(/\n {4}at (.*)\((.*)\)/);
-                        if (match) {
-                            stack = `(${format(match[1], match[2], match[3])})`;
-                        } else {
-                            const match = error.stack.match(/\s*@\s*(.*):(.*):(.*)/);
-                            if (match) {
-                                stack = `(${format(match[1], match[2], match[3])})`;
-                            } else {
-                                const match = error.stack.match(/.*\n\s*(.*)\s*/);
-                                if (match) {
-                                    [, stack] = match;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (error.context) {
-                context = typeof error.context === 'string' ? error.context : JSON.stringify(error.context);
-            }
-            this._telemetry.send('exception', {
-                app_name: this.type,
-                app_version: this.version,
-                error_name: name,
-                error_message: message,
-                error_context: context,
-                error_stack: stack,
-                error_fatal: fatal ? true : false
-            });
-        }
     }
 
     event(name, params) {
-        if (name && params) {
-            params.app_name = this.type;
-            params.app_version = this.version;
-            this._telemetry.send(name, params);
-        }
     }
 
     async _request(url, headers, encoding, callback, timeout) {
@@ -432,7 +310,6 @@ host.BrowserHost = class {
                 }
             }
             context = new host.BrowserHost.Context(this, url, identifier, name, stream);
-            this._telemetry.set('session_engaged', 1);
         } catch (error) {
             await this._view.error(error, 'Model load request failed.');
             this._view.show('welcome');
@@ -484,7 +361,6 @@ host.BrowserHost = class {
     }
 
     async _openContext(context) {
-        this._telemetry.set('session_engaged', 1);
         try {
             const model = await this._view.open(context);
             if (model) {

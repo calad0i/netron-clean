@@ -17,7 +17,6 @@ host.ElectronHost = class {
         this._document = window.document;
         this._window = window;
         this._global = global;
-        this._telemetry = new base.Telemetry(this._window);
         process.on('uncaughtException', (error) => {
             this.exception(error, true);
             this.message(error.message);
@@ -80,65 +79,6 @@ host.ElectronHost = class {
         electron.ipcRenderer.on('open', (_, data) => {
             this._open(data);
         });
-        const age = async () => {
-            const days = (new Date() - new Date(this._environment.date)) / (24 * 60 * 60 * 1000);
-            if (days > 180) {
-                this.document.body.classList.remove('spinner');
-                const link = this._element('logo-github').href;
-                for (;;) {
-                    /* eslint-disable no-await-in-loop */
-                    await this.message('Please update to the newest version.', null, 'Download');
-                    /* eslint-enable no-await-in-loop */
-                    this.openURL(link);
-                }
-            }
-            return Promise.resolve();
-        };
-        const consent = async () => {
-            const time = this.get('consent');
-            if (!time || (Date.now() - time) > 30 * 24 * 60 * 60 * 1000) {
-                let consent = true;
-                try {
-                    const content = await this._request('https://ipinfo.io/json', { 'Content-Type': 'application/json' }, 2000);
-                    const json = JSON.parse(content);
-                    const countries = ['AT', 'BE', 'BG', 'HR', 'CZ', 'CY', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'NO', 'PL', 'PT', 'SK', 'ES', 'SE', 'GB', 'UK', 'GR', 'EU', 'RO'];
-                    if (json && json.country && countries.indexOf(json.country) === -1) {
-                        consent = false;
-                    }
-                } catch {
-                    // continue regardless of error
-                }
-                if (consent) {
-                    this.document.body.classList.remove('spinner');
-                    await this.message('This app uses cookies to report errors and anonymous usage information.', null, 'Accept');
-                }
-                this.set('consent', Date.now());
-            }
-        };
-        const telemetry = async () => {
-            if (this._environment.packaged) {
-                const measurement_id = '848W2NVWVH';
-                const user = this.get('user') || null;
-                const session = this.get('session') || null;
-                await this._telemetry.start(`G-${measurement_id}`, user && user.indexOf('.') !== -1 ? user : null, session);
-                this._telemetry.send('page_view', {
-                    app_name: this.type,
-                    app_version: this.version,
-                    app_metadata: this.metadata
-                });
-                this._telemetry.send('scroll', {
-                    percent_scrolled: 90,
-                    app_name: this.type,
-                    app_version: this.version,
-                    app_metadata: this.metadata
-                });
-                this.set('user', this._telemetry.get('client_id'));
-                this.set('session', this._telemetry.session);
-            }
-        };
-        await age();
-        await consent();
-        await telemetry();
     }
 
     async start() {
@@ -356,57 +296,9 @@ host.ElectronHost = class {
     }
 
     exception(error, fatal) {
-        if (this._telemetry && error) {
-            try {
-                const name = error.name ? `${error.name}: ` : '';
-                const message = error.message ? error.message : JSON.stringify(error);
-                let context = '';
-                let stack = '';
-                if (error.stack) {
-                    const format = (file, line, column) => {
-                        return `${file.split('\\').join('/').split('/').pop()}:${line}:${column}`;
-                    };
-                    const match = error.stack.match(/\n {4}at (.*) \((.*):(\d*):(\d*)\)/);
-                    if (match) {
-                        stack = `${match[1]} (${format(match[2], match[3], match[4])})`;
-                    } else {
-                        const match = error.stack.match(/\n {4}at (.*):(\d*):(\d*)/);
-                        if (match) {
-                            stack = `(${format(match[1], match[2], match[3])})`;
-                        } else {
-                            const match = error.stack.match(/.*\n\s*(.*)\s*/);
-                            if (match) {
-                                [, stack] = match;
-                            }
-                        }
-                    }
-                }
-                if (error.context) {
-                    context = typeof error.context === 'string' ? error.context : JSON.stringify(error.context);
-                }
-                this._telemetry.send('exception', {
-                    app_name: this.type,
-                    app_version: this.version,
-                    app_metadata: this.metadata,
-                    error_name: name,
-                    error_message: message,
-                    error_context: context,
-                    error_stack: stack,
-                    error_fatal: fatal ? true : false
-                });
-            } catch {
-                // continue regardless of error
-            }
-        }
     }
 
     event(name, params) {
-        if (name && params) {
-            params.app_name = this.type;
-            params.app_version = this.version;
-            params.app_metadata = this.metadata;
-            this._telemetry.send(name, params);
-        }
     }
 
     async _context(location) {
@@ -450,7 +342,6 @@ host.ElectronHost = class {
             let context = null;
             try {
                 context = await this._context(path);
-                this._telemetry.set('session_engaged', 1);
             } catch (error) {
                 await this._view.error(error, 'Error while reading file.');
                 this.update({ path: null });
