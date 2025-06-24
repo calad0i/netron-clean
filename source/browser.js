@@ -1,9 +1,9 @@
 
 import * as base from './base.js';
 
-const host = {};
+const browser = {};
 
-host.BrowserHost = class {
+browser.Host = class {
 
     constructor() {
         this._window = window;
@@ -30,7 +30,7 @@ host.BrowserHost = class {
             repository: this._element('logo-github').getAttribute('href'),
             menu: true
         };
-        if (!/^\d\.\d\.\d$/.test(this.version)) {
+        if (this.version && !/^\d\.\d\.\d$/.test(this.version)) {
             throw new Error('Invalid version.');
         }
     }
@@ -166,10 +166,12 @@ host.BrowserHost = class {
     async export(file, blob) {
         const element = this.document.createElement('a');
         element.download = file;
-        element.href = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
+        element.href = url;
         this.document.body.appendChild(element);
         element.click();
         this.document.body.removeChild(element);
+        URL.revokeObjectURL(url);
     }
 
     async execute(name /*, value */) {
@@ -309,7 +311,8 @@ host.BrowserHost = class {
                     stream = await this._request(url, null, null, progress);
                 }
             }
-            context = new host.BrowserHost.Context(this, url, identifier, name, stream);
+            context = new browser.Context(this, url, identifier, name, stream);
+            this._telemetry.set('session_engaged', 1);
         } catch (error) {
             await this._view.error(error, 'Model load request failed.');
             this._view.show('welcome');
@@ -320,7 +323,7 @@ host.BrowserHost = class {
 
     async _open(file, files) {
         this._view.show('welcome spinner');
-        const context = new host.BrowserHost.BrowserFileContext(this, file, files);
+        const context = new browser.BrowserFileContext(this, file, files);
         try {
             await context.open();
             await this._openContext(context);
@@ -352,7 +355,7 @@ host.BrowserHost = class {
             const encoder = new TextEncoder();
             const buffer = encoder.encode(file.content);
             const stream = new base.BinaryStream(buffer);
-            const context = new host.BrowserHost.Context(this, '', identifier, null, stream);
+            const context = new browser.Context(this, '', identifier, null, stream);
             await this._openContext(context);
         } catch (error) {
             await this._view.error(error, 'Error while loading Gist.');
@@ -362,8 +365,14 @@ host.BrowserHost = class {
 
     async _openContext(context) {
         try {
+            const attachment = await this._view.attach(context);
+            if (attachment) {
+                this._view.show(null);
+                return 'context-open-attachment';
+            }
             const model = await this._view.open(context);
             if (model) {
+                this._view.show(null);
                 this.document.title = context.name || context.identifier;
                 return '';
             }
@@ -463,7 +472,7 @@ host.BrowserHost = class {
     }
 };
 
-host.BrowserHost.BrowserFileContext = class {
+browser.BrowserFileContext = class {
 
     constructor(host, file, blobs) {
         this._host = host;
@@ -510,7 +519,7 @@ host.BrowserHost.BrowserFileContext = class {
                             const slice = blob.slice(position, Math.min(position + size, blob.size));
                             reader.readAsArrayBuffer(slice);
                         } else {
-                            const stream = new host.BrowserHost.FileStream(chunks, size, 0, position);
+                            const stream = new browser.FileStream(chunks, size, 0, position);
                             resolve(stream);
                         }
                     }
@@ -558,7 +567,7 @@ host.BrowserHost.BrowserFileContext = class {
     }
 };
 
-host.BrowserHost.FileStream = class {
+browser.FileStream = class {
 
     constructor(chunks, size, start, length) {
         this._chunks = chunks;
@@ -577,7 +586,7 @@ host.BrowserHost.FileStream = class {
     }
 
     stream(length) {
-        const file = new host.BrowserHost.FileStream(this._chunks, this._size, this._start + this._position, length);
+        const file = new browser.FileStream(this._chunks, this._size, this._start + this._position, length);
         this.skip(length);
         return file;
     }
@@ -665,7 +674,7 @@ host.BrowserHost.FileStream = class {
     }
 };
 
-host.BrowserHost.Context = class {
+browser.Context = class {
 
     constructor(host, url, identifier, name, stream) {
         this._host = host;
@@ -747,7 +756,7 @@ if (!('scrollBehavior' in window.document.documentElement.style)) {
 }
 
 if (typeof window !== 'undefined' && window.exports) {
-    window.exports.browser = host;
+    window.exports.browser = browser;
 }
 
-export const BrowserHost = host.BrowserHost;
+export const Host = browser.Host;

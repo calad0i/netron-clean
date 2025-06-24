@@ -1,7 +1,7 @@
 
 const base = {};
 
-base.Complex64 = class Complex {
+base.Complex64 = class Complex64 {
 
     constructor(real, imaginary) {
         this.real = real;
@@ -9,11 +9,13 @@ base.Complex64 = class Complex {
     }
 
     toString(/* radix */) {
-        return `${this.real} + ${this.imaginary}i`;
+        const sign = this.imaginary < 0 ? '-' : '+';
+        const imaginary = Math.abs(this.imaginary);
+        return `${this.real} ${sign} ${imaginary}i`;
     }
 };
 
-base.Complex128 = class Complex {
+base.Complex128 = class Complex128 {
 
     constructor(real, imaginary) {
         this.real = real;
@@ -21,7 +23,9 @@ base.Complex128 = class Complex {
     }
 
     toString(/* radix */) {
-        return `${this.real} + ${this.imaginary}i`;
+        const sign = this.imaginary < 0 ? '-' : '+';
+        const imaginary = Math.abs(this.imaginary);
+        return `${this.real} ${sign} ${imaginary}i`;
     }
 };
 
@@ -135,12 +139,12 @@ DataView.prototype.getFloat8e4m3 = function(byteOffset, fn, uz) {
     if (expo === 0) {
         if (mant > 0) {
             expo = 0x7F - exponent_bias;
-            if (mant & 0x4 === 0) {
+            if ((mant & 0x4) === 0) {
                 mant &= 0x3;
                 mant <<= 1;
                 expo -= 1;
             }
-            if (mant & 0x4 === 0) {
+            if ((mant & 0x4) === 0) {
                 mant &= 0x3;
                 mant <<= 1;
                 expo -= 1;
@@ -188,7 +192,7 @@ DataView.prototype.getFloat8e5m2 = function(byteOffset, fn, uz) {
     if (expo === 0) {
         if (mant > 0) {
             expo = 0x7F - exponent_bias;
-            if (mant & 0x2 === 0) {
+            if ((mant & 0x2) === 0) {
                 mant &= 0x1;
                 mant <<= 1;
                 expo -= 1;
@@ -626,6 +630,9 @@ base.Tensor = class {
 
     get data() {
         this._read();
+        if (this._data && this._data.peek) {
+            this._data = this._data.peek();
+        }
         return this._data;
     }
 
@@ -736,8 +743,8 @@ base.Tensor = class {
                 for (let i = 0; i < dimensions; i++) {
                     const stride = strides[i];
                     const dimension = data[i];
-                    for (let i = 0; i < indices.length; i++) {
-                        indices[i] += dimension[i].toNumber() * stride;
+                    for (let j = 0; j < indices.length; j++) {
+                        indices[j] += dimension[j].toNumber() * stride;
                     }
                 }
                 context.data = this._decodeSparse(dataType, context.dimensions, indices, values);
@@ -791,7 +798,7 @@ base.Tensor = class {
                         break;
                     }
                     default: {
-                        throw new base.Tensor(`Unsupported tensor encoding '${this.encoding}'.`);
+                        throw new Error(`Unsupported tensor encoding '${this.encoding}'.`);
                     }
                 }
             }
@@ -882,18 +889,18 @@ base.Tensor = class {
                 case 'quint16':
                 case 'uint16':
                     for (; offset < max; offset += stride) {
-                        results.push(view.getUint16(offset, true));
+                        results.push(view.getUint16(offset, this._littleEndian));
                     }
                     break;
                 case 'quint32':
                 case 'uint32':
                     for (; offset < max; offset += stride) {
-                        results.push(view.getUint32(offset, true));
+                        results.push(view.getUint32(offset, this._littleEndian));
                     }
                     break;
                 case 'uint64':
                     for (; offset < max; offset += stride) {
-                        results.push(view.getBigUint64(offset, true));
+                        results.push(view.getBigUint64(offset, this._littleEndian));
                     }
                     break;
                 case 'uint':
@@ -996,7 +1003,7 @@ base.Tensor = class {
                 }
                 switch (dataType) {
                     case 'boolean':
-                        results.push(data[position] === 0 ? false : true);
+                        results.push(data[position] === 0 || data[position] === false ? false : true);
                         break;
                     default:
                         results.push(data[position]);
@@ -1080,7 +1087,7 @@ base.Tensor = class {
                     break;
                 }
                 default: {
-                    throw new Error(`Unsupported tensor encoding '${this._encoding}'.`);
+                    throw new Error(`Unsupported tensor encoding '${this.encoding}'.`);
                 }
             }
             switch (this.layout) {

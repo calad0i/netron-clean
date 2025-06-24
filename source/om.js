@@ -9,16 +9,16 @@ const svp = {};
 
 om.ModelFactory = class {
 
-    match(context) {
+    async match(context) {
         const container = om.Container.open(context);
         if (container) {
-            context.type = 'om';
-            context.target = container;
+            return context.set('om', container);
         }
+        return null;
     }
 
     async open(context) {
-        const target = context.target;
+        const target = context.value;
         await target.read();
         const metadata = await context.metadata('om-metadata.json');
         return new om.Model(metadata, target);
@@ -29,6 +29,7 @@ om.Model = class {
 
     constructor(metadata, target) {
         this.format = target.format;
+        this.version = target.signature === 'PICO' ? target.model.version : '';
         const context = {
             metadata,
             signature: target.signature,
@@ -192,7 +193,7 @@ om.Node = class {
                 case 's': {
                     if (typeof obj.s === 'string') {
                         value = obj.s;
-                    } else if (obj.s.filter((c) => c <= 32 && c >= 128).length === 0) {
+                    } else if (obj.s.every((c) => c >= 32 && c <= 128)) {
                         value = om.Utility.decodeText(obj.s);
                     } else {
                         value = obj.s;
@@ -535,6 +536,7 @@ svp.ModelDef = class ModelDef {
         this.graph = [];
         this.name = reader.find(0x800D, 'string');
         this.batch_num = reader.find(0x600A);
+        this.version = '';
         while (reader.position < reader.length) {
             const tag = reader.uint16();
             const value = reader.value(tag);
@@ -606,6 +608,7 @@ svp.ModelDef = class ModelDef {
                 this.graph[0].op = this.graph[0].op.concat(this.graph[i].op);
             }
         }
+        this.version = this.graph[0].op.length === 0 ? 'release' : 'debug';
     }
 };
 

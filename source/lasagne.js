@@ -5,17 +5,17 @@ const lasagne = {};
 
 lasagne.ModelFactory = class {
 
-    match(context) {
-        const obj = context.peek('pkl');
+    async match(context) {
+        const obj = await context.peek('pkl');
         if (obj && obj.__class__ && obj.__class__.__module__ === 'nolearn.lasagne.base' && obj.__class__.__name__ === 'NeuralNet') {
-            context.type = 'lasagne';
-            context.target = obj;
+            return context.set('lasagne', obj);
         }
+        return null;
     }
 
     async open(context) {
         const metadata = await context.metadata('lasagne-metadata.json');
-        return new lasagne.Model(metadata, context.target);
+        return new lasagne.Model(metadata, context.value);
     }
 };
 
@@ -48,7 +48,7 @@ lasagne.Graph = class {
             const layer = model.layers_[name];
             if (layer.input_layer && layer.input_layer.name) {
                 const input_layer = layer.input_layer;
-                const dataType = input_layer.input_var ? input_layer.input_var.type.dtype : '?';
+                const dataType = input_layer.input_var && input_layer.input_var.type ? input_layer.input_var.type.dtype : '?';
                 const shape = layer.input_shape ? new lasagne.TensorShape(layer.input_shape) : null;
                 const type = shape ? new lasagne.TensorType(dataType, shape) : null;
                 values.map(input_layer.name, type);

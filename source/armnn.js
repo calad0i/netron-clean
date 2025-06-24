@@ -3,24 +3,22 @@ const armnn = {};
 
 armnn.ModelFactory = class {
 
-    match(context) {
+    async match(context) {
         const identifier = context.identifier;
-        const extension = identifier.split('.').pop().toLowerCase();
+        const extension = identifier.lastIndexOf('.') > 0 ? identifier.split('.').pop().toLowerCase() : '';
         if (extension === 'armnn') {
-            const reader = context.peek('flatbuffers.binary');
+            const reader = await context.peek('flatbuffers.binary');
             if (reader) {
-                context.type = 'armnn.flatbuffers';
-                context.target = reader;
-                return;
+                return context.set('armnn.flatbuffers', reader);
             }
         }
         if (extension === 'json') {
-            const obj = context.peek('json');
+            const obj = await context.peek('json');
             if (obj && obj.layers && obj.inputIds && obj.outputIds) {
-                context.type = 'armnn.flatbuffers.json';
-                context.target = obj;
+                return context.set('armnn.flatbuffers.json', obj);
             }
         }
+        return null;
     }
 
     async open(context) {
@@ -30,7 +28,7 @@ armnn.ModelFactory = class {
         switch (context.type) {
             case 'armnn.flatbuffers': {
                 try {
-                    const reader = context.read('flatbuffers.binary');
+                    const reader = await context.read('flatbuffers.binary');
                     model = armnn.schema.SerializedGraph.create(reader);
                 } catch (error) {
                     const message = error && error.message ? error.message : error.toString();
@@ -40,7 +38,7 @@ armnn.ModelFactory = class {
             }
             case 'armnn.flatbuffers.json': {
                 try {
-                    const reader = context.read('flatbuffers.text');
+                    const reader = await context.read('flatbuffers.text');
                     model = armnn.schema.SerializedGraph.createText(reader);
                 } catch (error) {
                     const message = error && error.message ? error.message : error.toString();
@@ -94,9 +92,7 @@ armnn.Graph = class {
         const layers = graph.layers.filter((layer) => {
             const base = armnn.Node.getBase(layer);
             if (base.layerType === armnn.schema.LayerType.Constant && base.outputSlots.length === 1 && layer.layer.input) {
-                /* eslint-disable prefer-destructuring */
-                const slot = base.outputSlots[0];
-                /* eslint-enable prefer-destructuring */
+                const [slot] = base.outputSlots;
                 const name = `${base.index}:${slot.index}`;
                 if (counts.get(name) === 1) {
                     const tensor = new armnn.Tensor(layer.layer.input, 'Constant');

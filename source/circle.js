@@ -7,18 +7,16 @@ const circle = {};
 
 circle.ModelFactory = class {
 
-    match(context) {
-        const reader = context.peek('flatbuffers.binary');
+    async match(context) {
+        const reader = await context.peek('flatbuffers.binary');
         if (reader && reader.identifier === 'CIR0') {
-            context.type = 'circle.flatbuffers';
-            context.target = reader;
-            return;
+            return context.set('circle.flatbuffers', reader);
         }
-        const obj = context.peek('json');
+        const obj = await context.peek('json');
         if (obj && obj.subgraphs && obj.operator_codes) {
-            context.type = 'circle.flatbuffers.json';
-            context.target = obj;
+            return context.set('circle.flatbuffers.json', obj);
         }
+        return null;
     }
 
     async open(context) {
@@ -29,7 +27,7 @@ circle.ModelFactory = class {
         switch (context.type) {
             case 'circle.flatbuffers.json': {
                 try {
-                    const reader = context.read('flatbuffers.text');
+                    const reader = await context.read('flatbuffers.text');
                     model = circle.schema.Model.createText(reader);
                 } catch (error) {
                     const message = error && error.message ? error.message : error.toString();
@@ -39,7 +37,7 @@ circle.ModelFactory = class {
             }
             case 'circle.flatbuffers': {
                 try {
-                    const reader = context.target;
+                    const reader = context.value;
                     model = circle.schema.Model.create(reader);
                 } catch (error) {
                     const message = error && error.message ? error.message : error.toString();
@@ -356,7 +354,7 @@ circle.Node = class {
                 for (const [name, value] of Object.entries(options)) {
                     if (name === 'fused_activation_function' && value) {
                         if (value < 1 || value > 5) {
-                            throw new circle.Error(`Unsupported activation funtion index '${value}'.`);
+                            throw new circle.Error(`Unsupported activation function index '${value}'.`);
                         }
                         const list = ['Unknown', 'Relu', 'ReluN1To1', 'Relu6', 'Tanh', 'SignBit'];
                         const type = list[value];

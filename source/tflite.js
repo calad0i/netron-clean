@@ -7,28 +7,24 @@ const tflite = {};
 
 tflite.ModelFactory = class {
 
-    match(context) {
-        const reader = context.peek('flatbuffers.binary');
+    async match(context) {
+        const reader = await context.peek('flatbuffers.binary');
         if (reader && reader.identifier === 'TFL3') {
-            context.type = 'tflite.flatbuffers';
-            context.target = reader;
-            return;
+            return context.set('tflite.flatbuffers', reader);
         }
         const identifier = context.identifier;
-        const extension = identifier.split('.').pop().toLowerCase();
+        const extension = identifier.lastIndexOf('.') > 0 ? identifier.split('.').pop().toLowerCase() : '';
         if (extension === 'tflite' && reader && reader.identifier === '') {
             const version = reader.uint32_(reader.root, 4, 0);
             if (version === 3) {
-                context.type = 'tflite.flatbuffers';
-                context.target = reader;
-                return;
+                return context.set('tflite.flatbuffers', reader);
             }
         }
-        const obj = context.peek('json');
+        const obj = await context.peek('json');
         if (obj && obj.subgraphs && obj.operator_codes) {
-            context.type = 'tflite.flatbuffers.json';
-            context.target = obj;
+            return context.set('tflite.flatbuffers.json', obj);
         }
+        return null;
     }
 
     async open(context) {
@@ -39,7 +35,7 @@ tflite.ModelFactory = class {
         switch (context.type) {
             case 'tflite.flatbuffers.json': {
                 try {
-                    const reader = context.read('flatbuffers.text');
+                    const reader = await context.read('flatbuffers.text');
                     model = tflite.schema.Model.createText(reader);
                 } catch (error) {
                     const message = error && error.message ? error.message : error.toString();
@@ -49,7 +45,7 @@ tflite.ModelFactory = class {
             }
             case 'tflite.flatbuffers': {
                 try {
-                    const reader = context.target;
+                    const reader = context.value;
                     model = tflite.schema.Model.create(reader);
                 } catch (error) {
                     const message = error && error.message ? error.message : error.toString();
@@ -366,7 +362,7 @@ tflite.Node = class {
                 for (const [name, value] of Object.entries(options)) {
                     if (name === 'fused_activation_function' && value) {
                         if (value < 1 || value > 5) {
-                            throw new tflite.Error(`Unsupported activation funtion index '${value}'.`);
+                            throw new tflite.Error(`Unsupported activation function index '${value}'.`);
                         }
                         const list = ['Unknown', 'Relu', 'ReluN1To1', 'Relu6', 'Tanh', 'SignBit'];
                         const type = list[value];

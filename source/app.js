@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as process from 'process';
+import * as updater from 'electron-updater';
 import * as url from 'url';
 
 const app = {};
@@ -70,6 +71,10 @@ app.Application = class {
                 return false;
             });
             this._dropPaths(event.sender, paths);
+            event.returnValue = null;
+        });
+        electron.ipcMain.on('update-recents', (event, data) => {
+            this._updateRecents(data.path);
             event.returnValue = null;
         });
         electron.ipcMain.on('show-save-dialog', async (event, options) => {
@@ -227,7 +232,6 @@ app.Application = class {
         for (const path of paths) {
             if (view) {
                 view.open(path);
-                this._updateRecents(path);
                 view = null;
             } else {
                 this._openPath(path);
@@ -284,7 +288,6 @@ app.Application = class {
         const view = this._views.activeView;
         if (view && view.path) {
             view.open(view.path);
-            this._updateRecents(view.path);
         }
     }
 
@@ -292,7 +295,6 @@ app.Application = class {
         if (!electron.app.isPackaged) {
             return;
         }
-        const updater = await import('electron-updater');
         const autoUpdater = updater.default.autoUpdater;
         if (autoUpdater.app && autoUpdater.app.appUpdateConfigPath && !fs.existsSync(autoUpdater.app.appUpdateConfigPath)) {
             return;
@@ -393,36 +395,38 @@ app.Application = class {
                 });
             }
 
-            menuTemplate.push({
-                label: '&File',
-                submenu: [
-                    {
-                        label: '&Open...',
-                        accelerator: 'CmdOrCtrl+O',
-                        click: () => this._open(null)
-                    },
-                    {
-                        label: 'Open &Recent',
-                        submenu: menuRecentsTemplate
-                    },
-                    { type: 'separator' },
-                    {
-                        id: 'file.export',
-                        label: '&Export...',
-                        accelerator: 'CmdOrCtrl+Shift+E',
-                        click: async () => await this.execute('export', null)
-                    },
-                    { type: 'separator' },
-                    { role: 'close' },
-                ]
-            });
+            const fileSubmenu = [
+                {
+                    label: '&Open...',
+                    accelerator: 'CmdOrCtrl+O',
+                    click: () => this._open(null)
+                },
+                {
+                    label: 'Open &Recent',
+                    submenu: menuRecentsTemplate
+                },
+                { type: 'separator' },
+                {
+                    id: 'file.export',
+                    label: '&Export...',
+                    accelerator: 'CmdOrCtrl+Shift+E',
+                    click: async () => await this.execute('export', null)
+                },
+                { type: 'separator' },
+                { role: 'close' },
+            ];
 
             if (!darwin) {
-                menuTemplate.slice(-1)[0].submenu.push(
+                fileSubmenu.push(
                     { type: 'separator' },
                     { role: 'quit' }
                 );
             }
+
+            menuTemplate.push({
+                label: '&File',
+                submenu: fileSubmenu
+            });
 
             if (darwin) {
                 electron.systemPreferences.setUserDefault('NSDisabledDictationMenuItem', 'boolean', true);
@@ -658,8 +662,9 @@ app.View = class {
             width: size.width > 1024 ? 1024 : size.width,
             height: size.height > 768 ? 768 : size.height,
             webPreferences: {
-                preload: path.join(dirname, 'electron.mjs'),
-                nodeIntegration: true
+                preload: path.join(dirname, 'desktop.mjs'),
+                nodeIntegration: true,
+                enableDeprecatedPaste: true
             }
         };
         if (owner.application.environment.titlebar) {

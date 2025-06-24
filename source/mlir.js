@@ -6,41 +6,42 @@ const mlir = {};
 
 mlir.ModelFactory = class {
 
-    match(context) {
+    async match(context) {
         const stream = context.stream;
         if (stream && stream.length > 4) {
             const buffer = stream.peek(4);
             const signature = String.fromCharCode.apply(null, buffer);
             if (signature === 'ML\xEFR') {
-                context.type = 'mlir.binary';
-                return;
+                return context.set('mlir.binary');
             }
         }
         try {
-            const reader = context.read('text', 0x10000);
+            const reader = await context.read('text', 0x10000);
             for (let line = reader.read('\n'); line !== undefined; line = reader.read('\n')) {
                 if (/module\s+(\w+\s+)?{/.test(line) || /tensor<\w+>/.test(line) || /func\s*@\w+/.test(line)) {
-                    context.type = 'mlir.text';
-                    return;
+                    return context.set('mlir.text');
                 }
             }
         } catch {
             // continue regardless of error
         }
+        return null;
     }
 
     async open(context) {
         switch (context.type) {
             case 'mlir.text': {
-                const decoder = context.read('text.decoder');
+                const decoder = await context.read('text.decoder');
                 const parser = new mlir.Parser(decoder);
                 const obj = await parser.read();
-                return new mlir.Model(obj);
+                const metadata = new mlir.Metadata();
+                return new mlir.Model(metadata, obj);
             }
             case 'mlir.binary': {
-                const reader = new mlir.BytecodeReader(context);
-                reader.read();
-                throw new mlir.Error('Invalid file content. File contains MLIR bytecode data.');
+                const reader = await context.read('binary');
+                const parser = new mlir.BytecodeReader(reader);
+                parser.read();
+                throw new mlir.Error('File contains unsupported MLIR bytecode data.');
             }
             default: {
                 throw new mlir.Error(`Unsupported MLIR format '${context.type}'.`);
@@ -51,13 +52,13 @@ mlir.ModelFactory = class {
 
 mlir.Model = class {
 
-    constructor(obj) {
+    constructor(metadata, obj) {
         this.format = 'MLIR';
         this.graphs = [];
         this.metadata = [];
         for (const op of obj.operations) {
             if (op.name.endsWith('.func')) {
-                const graph = new mlir.Graph(op);
+                const graph = new mlir.Graph(metadata, op);
                 this.graphs.push(graph);
             }
             if (op.name.endsWith('.module')) {
@@ -65,7 +66,7 @@ mlir.Model = class {
                     for (const block of region.blocks) {
                         for (const op of block.operations) {
                             if (op.name.endsWith('.func')) {
-                                const graph = new mlir.Graph(op);
+                                const graph = new mlir.Graph(metadata, op);
                                 this.graphs.push(graph);
                             }
                         }
@@ -75,7 +76,8 @@ mlir.Model = class {
         }
         if (obj.definitions) {
             for (const attribute of obj.definitions) {
-                const metadata = new mlir.Argument(attribute.name, attribute.value, attribute.type);
+                const value = typeof attribute.value === 'string' ? attribute.value : JSON.stringify(attribute.value);
+                const metadata = new mlir.Argument(attribute.name, value, 'attribute');
                 this.metadata.push(metadata);
             }
         }
@@ -84,10 +86,11 @@ mlir.Model = class {
 
 mlir.Graph = class {
 
-    constructor(func) {
+    constructor(metadata, func) {
         const attr = Object.fromEntries(func.attributes.map((attr) => [attr.name, attr.value]));
         this.name = attr.sym_name || '';
-        this.type = func.name;
+        this.type = func.name === 'func' || func.name.endsWith('.func') ? 'function' : '';
+        this.description = func.name;
         this.inputs = [];
         this.outputs = [];
         this.nodes = [];
@@ -285,7 +288,7 @@ mlir.Graph = class {
             //     const map = new Map(metadata.inputs.map((input) => [ input.name, index++ ]));
             //     op.inputs.sort((a, b) => (map.get(a.name) || map.size) - (map.get(b.name) || map.size));
             // }
-            const node = new mlir.Node(op);
+            const node = new mlir.Node(metadata, op);
             this.nodes.push(node);
         }
     }
@@ -301,8 +304,8 @@ mlir.Argument = class {
             case 'i64': this.type = 'int64'; break;
             case 'si64': this.type = 'int64'; break;
             case 'i32': this.type = 'int32'; break;
-            case 'f32': this.type = 'float32'; break;
-            case 'f64': this.type = 'float64'; break;
+            case 'f32': case 'float32': this.type = 'float32'; break;
+            case 'f64': case 'float64': this.type = 'float64'; break;
             case null:
             case 'attribute':
             case 'boolean':
@@ -331,11 +334,13 @@ mlir.Value = class {
 
 mlir.Node = class {
 
-    constructor(op) {
+    constructor(metadata, op) {
         if (!op.type) {
             throw new mlir.Error('Undefined node type.');
         }
-        this.type = { name: op.type || '', identifier: op.identifier || '' };
+        this.type = { ...metadata.type(op.identifier || '') };
+        this.type.name = op.type || '';
+        this.type.identifier = op.identifier || '';
         this.name = op.name || '';
         this.inputs = op.operands || [];
         this.outputs = op.results || [];
@@ -1523,8 +1528,8 @@ mlir.Parser = class {
 
 mlir.BytecodeReader = class {
 
-    constructor(context) {
-        this._reader = new mlir.BinaryReader(context);
+    constructor(reader) {
+        this._reader = new mlir.BinaryReader(reader);
     }
 
     read() {
@@ -1746,8 +1751,8 @@ mlir.BytecodeReader = class {
 
 mlir.BinaryReader = class {
 
-    constructor(context) {
-        this._reader = context.read('binary');
+    constructor(reader) {
+        this._reader = reader;
     }
 
     get length() {
@@ -1869,6 +1874,27 @@ mlir.Utility = class {
             return new mlir.TensorType(dataType, new mlir.TensorShape(shape));
         }
         return type;
+    }
+};
+
+mlir.Metadata = class {
+
+    constructor() {
+        this._types = new Map();
+        this.register('stablehlo.reshape', 'Shape');
+        this.register('asuka.split', 'Tensor');
+        this.register('stablehlo.transpose', 'Transform');
+        this.register('toy.transpose', 'Transform');
+        this.register('asuka.softmax', 'Activation');
+        this.register('stablehlo.slice', 'Tensor');
+    }
+
+    register(name, category) {
+        this._types.set(name, { name, category });
+    }
+
+    type(name) {
+        return this._types.get(name) || { name };
     }
 };
 

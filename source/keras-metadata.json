@@ -227,7 +227,7 @@
     "name": "AveragePooling2D",
     "module": "keras.layers",
     "category": "Pool",
-    "description": "Average pooling operation for 2D spatial data.\n\nDownsamples the input along its spatial dimensions (height and width)\nby taking the average value over an input window\n(of size defined by `pool_size`) for each channel of the input.\nThe window is shifted by `strides` along each dimension.\n\nThe resulting output when using the `\"valid\"` padding option has a spatial\nshape (number of rows or columns) of:\n`output_shape = math.floor((input_shape - pool_size) / strides) + 1`\n(when `input_shape >= pool_size`)\n\nThe resulting output shape when using the `\"same\"` padding option is:\n`output_shape = math.floor((input_shape - 1) / strides) + 1`",
+    "description": "Average pooling operation for 2D spatial data.\n\nDownsamples the input along its spatial dimensions (height and width)\nby taking the average value over an input window\n(of size defined by `pool_size`) for each channel of the input.\nThe window is shifted by `strides` along each dimension.\n\nThe resulting output when using the `\"valid\"` padding option has a spatial\nshape (number of rows or columns) of:\n`output_shape = math.floor((input_shape - pool_size) / strides) + 1`\n(when `input_shape >= pool_size`)\n\nThe resulting output shape when using the `\"same\"` padding option is:\n`output_shape = input_shape`",
     "attributes": [
       {
         "default": "channels_last",
@@ -339,7 +339,7 @@
       },
       {
         "name": "rms_scaling",
-        "description": "If True, `center` and `scale` are ignored, and the\n        inputs are scaled by `gamma` and the inverse square root\n        of the square of all inputs. This is an approximate and faster\n        approach that avoids ever computing the mean of the input."
+        "description": "If True, `center` and `scale` are ignored, and the\n        inputs are scaled by `gamma` and the inverse square root\n        of the square of all inputs. This is an approximate and faster\n        approach that avoids ever computing the mean of the input. Note that\n        this *isn't* equivalent to the computation that the\n        `keras.layers.RMSNormalization` layer performs."
       },
       {
         "name": "beta_initializer",
@@ -649,7 +649,6 @@
   {
     "name": "Bidirectional",
     "module": "keras.layers",
-    "category": "Wrapper",
     "description": "Bidirectional wrapper for RNNs.",
     "attributes": [
       {
@@ -850,7 +849,7 @@
     "name": "Conv2D",
     "module": "keras.layers",
     "category": "Layer",
-    "description": "2D convolution layer.\n\nThis layer creates a convolution kernel that is convolved with the layer\ninput over a 2D spatial (or temporal) dimension (height and width) to\nproduce a tensor of outputs. If `use_bias` is True, a bias vector is created\nand added to the outputs. Finally, if `activation` is not `None`, it is\napplied to the outputs as well.",
+    "description": "2D convolution layer.\n\nThis layer creates a convolution kernel that is convolved with the layer\ninput over a 2D spatial (or temporal) dimension (height and width) to\nproduce a tensor of outputs. If `use_bias` is True, a bias vector is created\nand added to the outputs. Finally, if `activation` is not `None`, it is\napplied to the outputs as well.\n\nNote on numerical precision: While in general Keras operation execution\nresults are identical across backends up to 1e-7 precision in float32,\n`Conv2D` operations may show larger variations. Due to the large\nnumber of element-wise multiplications and additions in convolution\noperations, especially with large inputs or kernel sizes, accumulated\nfloating-point differences can exceed this 1e-7 threshold. These variations\nare particularly noticeable when using different backends (e.g., TensorFlow\nvs JAX) or different hardware.",
     "attributes": [
       {
         "default": "linear",
@@ -999,7 +998,7 @@
       },
       {
         "default": "channels_last",
-        "description": "string, either `\"channels_last\"` or `\"channels_first\"`.\n        The ordering of the dimensions in the inputs. `\"channels_last\"`\n        corresponds to inputs with shape\n        `(batch_size, height, width, channels)`\n        while `\"channels_first\"` corresponds to inputs with shape\n        `(batch_size, channels, height, width)`. It defaults to the\n        `image_data_format` value found in your Keras config file at\n        `~/.keras/keras.json`. If you never set it, then it will be\n        `\"channels_last\"`.",
+        "description": "string, either `\"channels_last\"` or `\"channels_first\"`.\n        The ordering of the dimensions in the inputs. `\"channels_last\"`\n        corresponds to inputs with shape\n        `(batch_size, height, width, channels)`\n        while `\"channels_first\"` corresponds to inputs with shape\n        `(batch_size, channels, height, width)`. It defaults to the\n        `image_data_format` value found in your Keras config file at\n        `~/.keras/keras.json`. If you never set it, then it will be\n        `\"channels_last\"`.\n     dilation_rate: An integer or tuple/list of 2 integers,\n        specifying the dilation rate for\n        all spatial dimensions for dilated convolution.\n        Specifying different dilation rates\n        for different dimensions is not supported.\n        Currently, specifying any `dilation_rate` value != 1 is\n        incompatible with specifying any stride value != 1.",
         "name": "data_format"
       },
       {
@@ -1063,7 +1062,7 @@
         "name": "bias_constraint"
       },
       {
-        "description": "An integer or tuple/list of 2 integers,\n    specifying the amount of padding along the height and width\n    of the output tensor.\n    Can be a single integer to specify the same value for all\n    spatial dimensions.\n    The amount of output padding along a given dimension must be\n    lower than the stride along that same dimension.\n    If set to `None` (default), the output shape is inferred.",
+        "description": "An integer or tuple/list of 2 integers,\n        specifying the amount of padding along the height and width\n        of the output tensor.\n        Can be a single integer to specify the same value for all\n        spatial dimensions.\n        The amount of output padding along a given dimension must be\n        lower than the stride along that same dimension.\n        If set to `None` (default), the output shape is inferred.",
         "name": "output_padding"
       }
     ],
@@ -1354,7 +1353,7 @@
     "name": "Convolution2D",
     "module": "keras.layers",
     "category": "Layer",
-    "description": "2D convolution layer.\n\nThis layer creates a convolution kernel that is convolved with the layer\ninput over a 2D spatial (or temporal) dimension (height and width) to\nproduce a tensor of outputs. If `use_bias` is True, a bias vector is created\nand added to the outputs. Finally, if `activation` is not `None`, it is\napplied to the outputs as well.",
+    "description": "2D convolution layer.\n\nThis layer creates a convolution kernel that is convolved with the layer\ninput over a 2D spatial (or temporal) dimension (height and width) to\nproduce a tensor of outputs. If `use_bias` is True, a bias vector is created\nand added to the outputs. Finally, if `activation` is not `None`, it is\napplied to the outputs as well.\n\nNote on numerical precision: While in general Keras operation execution\nresults are identical across backends up to 1e-7 precision in float32,\n`Conv2D` operations may show larger variations. Due to the large\nnumber of element-wise multiplications and additions in convolution\noperations, especially with large inputs or kernel sizes, accumulated\nfloating-point differences can exceed this 1e-7 threshold. These variations\nare particularly noticeable when using different backends (e.g., TensorFlow\nvs JAX) or different hardware.",
     "attributes": [
       {
         "default": "linear",
@@ -1780,6 +1779,10 @@
       {
         "name": "lora_rank",
         "description": "Optional integer. If set, the layer's forward pass\n        will implement LoRA (Low-Rank Adaptation)\n        with the provided rank. LoRA sets the layer's kernel\n        to non-trainable and replaces it with a delta over the\n        original kernel, obtained via multiplying two lower-rank\n        trainable matrices. This can be useful to reduce the\n        computation cost of fine-tuning large dense layers.\n        You can also enable LoRA on an existing\n        `Dense` layer by calling `layer.enable_lora(rank)`."
+      },
+      {
+        "name": "lora_alpha",
+        "description": "Optional integer. If set, this parameter scales the\n        low-rank adaptation delta (computed as the product of two lower-rank\n        trainable matrices) during the forward pass. The delta is scaled by\n        `lora_alpha / lora_rank`, allowing you to fine-tune the strength of\n        the LoRA adjustment independently of `lora_rank`."
       }
     ],
     "inputs": [
@@ -2058,6 +2061,10 @@
       {
         "name": "weights",
         "description": "Optional floating-point matrix of size\n        `(input_dim, output_dim)`. The initial embeddings values\n        to use."
+      },
+      {
+        "name": "lora_alpha",
+        "description": "Optional integer. If set, this parameter scales the\n        low-rank adaptation delta (computed as the product of two lower-rank\n        trainable matrices) during the forward pass. The delta is scaled by\n        `lora_alpha / lora_rank`, allowing you to fine-tune the strength of\n        the LoRA adjustment independently of `lora_rank`."
       }
     ],
     "inputs": [
@@ -2252,7 +2259,7 @@
     "name": "GRU",
     "module": "keras.layers",
     "category": "Layer",
-    "description": "Gated Recurrent Unit - Cho et al. 2014.\n\nBased on available runtime hardware and constraints, this layer\nwill choose different implementations (cuDNN-based or backend-native)\nto maximize the performance. If a GPU is available and all\nthe arguments to the layer meet the requirement of the cuDNN kernel\n(see below for details), the layer will use a fast cuDNN implementation\nwhen using the TensorFlow backend.\n\nThe requirements to use the cuDNN implementation are:\n\n1. `activation` == `tanh`\n2. `recurrent_activation` == `sigmoid`\n3. `dropout` == 0 and `recurrent_dropout` == 0\n4. `unroll` is `False`\n5. `use_bias` is `True`\n6. `reset_after` is `True`\n7. Inputs, if use masking, are strictly right-padded.\n8. Eager execution is enabled in the outermost context.\n\nThere are two variants of the GRU implementation. The default one is based\non [v3](https://arxiv.org/abs/1406.1078v3) and has reset gate applied to\nhidden state before matrix multiplication. The other one is based on\n[original](https://arxiv.org/abs/1406.1078v1) and has the order reversed.\n\nThe second variant is compatible with CuDNNGRU (GPU-only) and allows\ninference on CPU. Thus it has separate biases for `kernel` and\n`recurrent_kernel`. To use this variant, set `reset_after=True` and\n`recurrent_activation='sigmoid'`.\n\nFor example:\n\n```\n>>> inputs = np.random.random((32, 10, 8))\n>>> gru = keras.layers.GRU(4)\n>>> output = gru(inputs)\n>>> output.shape\n(32, 4)\n>>> gru = keras.layers.GRU(4, return_sequences=True, return_state=True)\n>>> whole_sequence_output, final_state = gru(inputs)\n>>> whole_sequence_output.shape\n(32, 10, 4)\n>>> final_state.shape\n(32, 4)\n```",
+    "description": "Gated Recurrent Unit - Cho et al. 2014.\n\nBased on available runtime hardware and constraints, this layer\nwill choose different implementations (cuDNN-based or backend-native)\nto maximize the performance. If a GPU is available and all\nthe arguments to the layer meet the requirement of the cuDNN kernel\n(see below for details), the layer will use a fast cuDNN implementation\nwhen using the TensorFlow backend.\n\nThe requirements to use the cuDNN implementation are:\n\n1. `activation` == `tanh`\n2. `recurrent_activation` == `sigmoid`\n3. `recurrent_dropout` == 0\n4. `unroll` is `False`\n5. `use_bias` is `True`\n6. `reset_after` is `True`\n7. Inputs, if use masking, are strictly right-padded.\n8. Eager execution is enabled in the outermost context.\n\nThere are two variants of the GRU implementation. The default one is based\non [v3](https://arxiv.org/abs/1406.1078v3) and has reset gate applied to\nhidden state before matrix multiplication. The other one is based on\n[original](https://arxiv.org/abs/1406.1078v1) and has the order reversed.\n\nThe second variant is compatible with CuDNNGRU (GPU-only) and allows\ninference on CPU. Thus it has separate biases for `kernel` and\n`recurrent_kernel`. To use this variant, set `reset_after=True` and\n`recurrent_activation='sigmoid'`.\n\nFor example:\n\n```\n>>> inputs = np.random.random((32, 10, 8))\n>>> gru = keras.layers.GRU(4)\n>>> output = gru(inputs)\n>>> output.shape\n(32, 4)\n>>> gru = keras.layers.GRU(4, return_sequences=True, return_state=True)\n>>> whole_sequence_output, final_state = gru(inputs)\n>>> whole_sequence_output.shape\n(32, 10, 4)\n>>> final_state.shape\n(32, 4)\n```",
     "attributes": [
       {
         "default": "tanh",
@@ -2900,7 +2907,7 @@
     "name": "LSTM",
     "module": "keras.layers",
     "category": "Layer",
-    "description": "Long Short-Term Memory layer - Hochreiter 1997.\n\nBased on available runtime hardware and constraints, this layer\nwill choose different implementations (cuDNN-based or backend-native)\nto maximize the performance. If a GPU is available and all\nthe arguments to the layer meet the requirement of the cuDNN kernel\n(see below for details), the layer will use a fast cuDNN implementation\nwhen using the TensorFlow backend.\nThe requirements to use the cuDNN implementation are:\n\n1. `activation` == `tanh`\n2. `recurrent_activation` == `sigmoid`\n3. `dropout` == 0 and `recurrent_dropout` == 0\n4. `unroll` is `False`\n5. `use_bias` is `True`\n6. Inputs, if use masking, are strictly right-padded.\n7. Eager execution is enabled in the outermost context.\n\nFor example:\n\n```\n>>> inputs = np.random.random((32, 10, 8))\n>>> lstm = keras.layers.LSTM(4)\n>>> output = lstm(inputs)\n>>> output.shape\n(32, 4)\n>>> lstm = keras.layers.LSTM(\n...     4, return_sequences=True, return_state=True)\n>>> whole_seq_output, final_memory_state, final_carry_state = lstm(inputs)\n>>> whole_seq_output.shape\n(32, 10, 4)\n>>> final_memory_state.shape\n(32, 4)\n>>> final_carry_state.shape\n(32, 4)\n```",
+    "description": "Long Short-Term Memory layer - Hochreiter 1997.\n\nBased on available runtime hardware and constraints, this layer\nwill choose different implementations (cuDNN-based or backend-native)\nto maximize the performance. If a GPU is available and all\nthe arguments to the layer meet the requirement of the cuDNN kernel\n(see below for details), the layer will use a fast cuDNN implementation\nwhen using the TensorFlow backend.\nThe requirements to use the cuDNN implementation are:\n\n1. `activation` == `tanh`\n2. `recurrent_activation` == `sigmoid`\n3. `recurrent_dropout` == 0\n4. `unroll` is `False`\n5. `use_bias` is `True`\n6. Inputs, if use masking, are strictly right-padded.\n7. Eager execution is enabled in the outermost context.\n\nFor example:\n\n```\n>>> inputs = np.random.random((32, 10, 8))\n>>> lstm = keras.layers.LSTM(4)\n>>> output = lstm(inputs)\n>>> output.shape\n(32, 4)\n>>> lstm = keras.layers.LSTM(\n...     4, return_sequences=True, return_state=True)\n>>> whole_seq_output, final_memory_state, final_carry_state = lstm(inputs)\n>>> whole_seq_output.shape\n(32, 10, 4)\n>>> final_memory_state.shape\n(32, 4)\n>>> final_carry_state.shape\n(32, 4)\n```",
     "attributes": [
       {
         "description": "Positive integer, dimensionality of the output space.",
@@ -3716,7 +3723,7 @@
     ],
     "examples": [
       {
-        "code": "from keras.layers import RNN\nfrom keras import ops\n\n# First, let's define a RNN Cell, as a layer subclass.\nclass MinimalRNNCell(keras.Layer):\n\n    def __init__(self, units, **kwargs):\n        super().__init__(**kwargs)\n        self.units = units\n        self.state_size = units\n\n    def build(self, input_shape):\n        self.kernel = self.add_weight(shape=(input_shape[-1], self.units),\n                                      initializer='uniform',\n                                      name='kernel')\n        self.recurrent_kernel = self.add_weight(\n            shape=(self.units, self.units),\n            initializer='uniform',\n            name='recurrent_kernel')\n        self.built = True\n\n    def call(self, inputs, states):\n        prev_output = states[0]\n        h = ops.matmul(inputs, self.kernel)\n        output = h + ops.matmul(prev_output, self.recurrent_kernel)\n        return output, [output]\n\n# Let's use this cell in a RNN layer:\n\ncell = MinimalRNNCell(32)\nx = keras.Input((None, 5))\nlayer = RNN(cell)\ny = layer(x)\n\n# Here's how to use the cell to build a stacked RNN:\n\ncells = [MinimalRNNCell(32), MinimalRNNCell(64)]\nx = keras.Input((None, 5))\nlayer = RNN(cells)\ny = layer(x)"
+        "code": "from keras.layers import RNN\nfrom keras import ops\n\n# First, let's define a RNN Cell, as a layer subclass.\nclass MinimalRNNCell(keras.Layer):\n\n    def __init__(self, units, **kwargs):\n        super().__init__(**kwargs)\n        self.units = units\n        self.state_size = units\n\n    def build(self, input_shape):\n        self.kernel = self.add_weight(shape=(input_shape[-1], self.units),\n                                      initializer='uniform',\n                                      name='kernel')\n        self.recurrent_kernel = self.add_weight(\n            shape=(self.units, self.units),\n            initializer='uniform',\n            name='recurrent_kernel')\n\n    def call(self, inputs, states):\n        prev_output = states[0]\n        h = ops.matmul(inputs, self.kernel)\n        output = h + ops.matmul(prev_output, self.recurrent_kernel)\n        return output, [output]\n\n# Let's use this cell in a RNN layer:\n\ncell = MinimalRNNCell(32)\nx = keras.Input((None, 5))\nlayer = RNN(cell)\ny = layer(x)\n\n# Here's how to use the cell to build a stacked RNN:\n\ncells = [MinimalRNNCell(32), MinimalRNNCell(64)]\nx = keras.Input((None, 5))\nlayer = RNN(cells)\ny = layer(x)"
       }
     ]
   },
@@ -4446,7 +4453,6 @@
   {
     "name": "TimeDistributed",
     "module": "keras.layers",
-    "category": "Wrapper",
     "description": "This wrapper allows to apply a layer to every temporal slice of an input.\n\nEvery input should be at least 3D, and the dimension of index one of the\nfirst input will be considered to be the temporal dimension.\n\nConsider a batch of 32 video samples, where each sample is a 128x128 RGB\nimage with `channels_last` data format, across 10 timesteps.\nThe batch input shape is `(32, 10, 128, 128, 3)`.\n\nYou can then use `TimeDistributed` to apply the same `Conv2D` layer to each\nof the 10 timesteps, independently:\n\n```\n>>> inputs = layers.Input(shape=(10, 128, 128, 3), batch_size=32)\n>>> conv_2d_layer = layers.Conv2D(64, (3, 3))\n>>> outputs = layers.TimeDistributed(conv_2d_layer)(inputs)\n>>> outputs.shape\n(32, 10, 126, 126, 64)\n```\n\nBecause `TimeDistributed` applies the same instance of `Conv2D` to each of\nthe timestamps, the same set of weights are used at each timestamp.",
     "attributes": [
       {
